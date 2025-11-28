@@ -4,6 +4,7 @@ import { readFileSync } from "fs";
 import { basename } from "path";
 import * as log from "./log.js";
 import { type Attachment, ChannelStore } from "./store.js";
+import { markdownToMrkdwn } from "./utils/markdown.js";
 
 export interface SlackMessage {
 	text: string; // message content (mentions stripped)
@@ -356,13 +357,16 @@ export class MomBot {
 			respond: async (responseText: string, log = true) => {
 				// Queue updates to avoid race conditions
 				updatePromise = updatePromise.then(async () => {
+					// Convert markdown to Slack mrkdwn format
+					const convertedText = markdownToMrkdwn(responseText);
+
 					if (isThinking) {
 						// First real response replaces "Thinking..."
-						accumulatedText = responseText;
+						accumulatedText = convertedText;
 						isThinking = false;
 					} else {
 						// Subsequent responses get appended
-						accumulatedText += "\n" + responseText;
+						accumulatedText += "\n" + convertedText;
 					}
 
 					// Add working indicator if still working
@@ -400,6 +404,7 @@ export class MomBot {
 						return;
 					}
 					// Obfuscate usernames to avoid pinging people in thread details
+					// Note: Skip markdown conversion here - threads have structured output where markdown works better
 					const obfuscatedText = this.obfuscateUsernames(threadText);
 					// Post in thread under the main message
 					await this.webClient.chat.postMessage({
@@ -435,8 +440,8 @@ export class MomBot {
 			},
 			replaceMessage: async (text: string) => {
 				updatePromise = updatePromise.then(async () => {
-					// Replace the accumulated text entirely
-					accumulatedText = text;
+					// Convert markdown to Slack mrkdwn and replace accumulated text
+					accumulatedText = markdownToMrkdwn(text);
 
 					const displayText = isWorking ? accumulatedText + workingIndicator : accumulatedText;
 
