@@ -208,7 +208,7 @@ export class MomBot {
 
 	private setupEventHandlers(): void {
 		// Handle @mentions in channels
-		// Note: We don't log here - the message event handler logs all messages
+		// Note: We also log here because message events may not fire for MPIMs (group DMs)
 		this.socketClient.on("app_mention", async ({ event, ack }) => {
 			await ack();
 
@@ -219,6 +219,15 @@ export class MomBot {
 				ts: string;
 				files?: Array<{ name: string; url_private_download?: string; url_private?: string }>;
 			};
+
+			// Log the user's message (message event may not fire for MPIMs)
+			await this.logMessage({
+				text: slackEvent.text,
+				channel: slackEvent.channel,
+				user: slackEvent.user,
+				ts: slackEvent.ts,
+				files: slackEvent.files,
+			});
 
 			const ctx = await this.createContext(slackEvent);
 			await this.handler.onChannelMention(ctx);
